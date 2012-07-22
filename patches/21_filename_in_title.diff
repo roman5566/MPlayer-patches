@@ -1,0 +1,66 @@
+Index: mplayer/libmpcodecs/vf_vo.c
+===================================================================
+--- mplayer.orig/libmpcodecs/vf_vo.c	2012-07-23 01:28:04.662621700 +0200
++++ mplayer/libmpcodecs/vf_vo.c	2012-07-23 01:33:53.985176100 +0200
+@@ -70,7 +70,21 @@
+     // save vo's stride capability for the wanted colorspace:
+     vf->default_caps=query_format(vf,outfmt);
+     vf->draw_slice = (vf->default_caps & VOCAP_NOSLICES) ? NULL : draw_slice;
+-
++#if defined(_WIN32) && !defined(CONFIG_GUI)
++    extern char *filename;
++    if (filename) {
++        char message[MAX_PATH + 1];
++        char *s = strrchr(filename, '\\');
++        if (!s) s = strrchr(filename, '/');
++        if (s) s++; else s = filename; 
++        message[0] = 0;
++        snprintf(message, MAX_PATH, "MPlayer: playing %s", filename_recode(s));
++        message[MAX_PATH] = 0;
++        if(config_video_out(video_out,width,height,d_width,d_height,flags,message,outfmt))
++            return 0;
++    }
++    else
++#endif
+     if(config_video_out(video_out,width,height,d_width,d_height,flags,"MPlayer",outfmt))
+ 	return 0;
+ 
+Index: mplayer/mencoder.c
+===================================================================
+--- mplayer.orig/mencoder.c	2012-07-23 01:28:16.574622100 +0200
++++ mplayer/mencoder.c	2012-07-23 01:33:53.995176700 +0200
+@@ -113,6 +113,10 @@
+ float stream_cache_seek_min_percent=50.0;
+ #endif
+ 
++#if defined(_WIN32) && !defined(CONFIG_GUI)
++char *filename = NULL; /* dummy for vf_vo */
++#endif
++
+ int audio_id=-1;
+ int video_id=-1;
+ int dvdsub_id=-1;
+Index: mplayer/mplayer.c
+===================================================================
+--- mplayer.orig/mplayer.c	2012-07-23 01:33:35.446115800 +0200
++++ mplayer/mplayer.c	2012-07-23 01:33:54.009177500 +0200
+@@ -3707,6 +3707,19 @@
+         if (mpctx->stream->type == STREAMTYPE_DVDNAV)
+             mp_input_set_section("dvdnav");
+ 
++#if defined(_WIN32) && !defined(CONFIG_GUI)
++    extern HWND vo_w32_window; /* NULL for directx, the title set in config() */
++    if (filename && vo_w32_window) {
++            char message[MAX_PATH + 1];
++            char *s = strrchr(filename, '\\');
++            if (!s) s = strrchr(filename, '/');
++            if (s) s++; else s = filename; 
++            message[0] = 0;
++            snprintf(message, MAX_PATH, "MPlayer: playing %s", filename_recode(s));
++            message[MAX_PATH] = 0;
++            SetWindowText(vo_w32_window, message);
++    }
++#endif
+ //==================== START PLAYING =======================
+ 
+         if (mpctx->loop_times > 1)

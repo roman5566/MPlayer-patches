@@ -1,0 +1,103 @@
+Index: mplayer/configure
+===================================================================
+--- mplayer.orig/configure	2012-07-23 01:33:29.098752700 +0200
++++ mplayer/configure	2012-07-23 01:33:57.150357200 +0200
+@@ -574,6 +574,7 @@
+   --with-install=PATH    path to a custom install program
+ 
+ Advanced options:
++  --flavor=system           build a specified target system
+   --enable-mmx              enable MMX [autodetect]
+   --enable-mmxext           enable MMX2 (Pentium III, Athlon) [autodetect]
+   --enable-3dnow            enable 3DNow! [autodetect]
+@@ -626,6 +627,7 @@
+ # GOTCHA: the variables below defines the default behavior for autodetection
+ # and have - unless stated otherwise - at least 2 states : yes no
+ # If autodetection is available then the third state is: auto
++_flavor=none
+ _mmx=auto
+ _3dnow=auto
+ _3dnowext=auto
+@@ -1017,6 +1019,9 @@
+   --disable-debug)
+     _debug=
+     ;;
++  --flavor=*)
++    _flavor=`echo $ac_option | cut -d '=' -f 2`
++    ;;
+   --enable-runtime-cpudetection)    _runtime_cpudetection=yes   ;;
+   --disable-runtime-cpudetection)   _runtime_cpudetection=no    ;;
+   --enable-cross-compile)           _cross_compile=yes          ;;
+@@ -2591,6 +2596,72 @@
+   test -n "$cflags_stackrealign" && echores "yes" || echores "no"
+ fi # if darwin && test "$cc_vendor" = "gnu" ; then
+ 
++# user selected target system
++if test "$_runtime_cpudetection" = no ; then
++    case "$host_arch-$cc_vendor-$_flavor" in
++        *-none) ;; # No flavor, standard build
++        i386-gnu-pentium4|i386-gnu-p4)
++         _mmx=yes
++         _mmxext=yes
++         _3dnow=auto
++         _3dnowext=auto
++         test $_sse = "auto" && _sse=yes
++         test $_sse2 = "auto" && _sse2=yes
++         _mcpu=$cpuopt=pentium4
++         _march=-march=pentium4
++         ;;
++        i386-gnu-pentium3|i386-gnu-p3)
++         ## Not tested
++         _mmx=yes
++         _mmxext=yes
++         _3dnow=auto
++         _3dnowext=auto
++         test $_sse = "auto" && _sse=yes
++         _sse2=auto
++         _mcpu=$cpuopt=pentium3
++         _march=-march=pentium3
++         ;;
++        i386-gnu-athlon)
++         _mmx=yes
++         _mmxext=yes
++         _3dnow=yes
++         _3dnowext=yes
++         _sse=auto
++         _sse2=auto
++         _mcpu=$cpuopt=athlon
++         _march=-march=athlon
++         ;;
++        i386-gnu-athlon-xp)
++         _mmx=yes
++         _mmxext=yes
++         _3dnow=yes
++         _3dnowext=yes
++         test $_sse = "auto" && _sse=yes
++         _sse2=auto
++         _mcpu=$cpuopt=athlon-xp
++         _march=-march=athlon-xp
++         ;;
++        i386-gnu-k8)
++         _mmx=yes
++         _mmxext=yes
++         _3dnow=yes
++         _3dnowext=yes
++         test $_sse = "auto" && _sse=yes
++         test $_sse2 = "auto" && _sse2=yes
++         _mcpu=$cpuopt=k8
++         _march=-march=k8
++         ;;
++        *)
++         echo "Invalid/unsupported target system $host_arch-$cc_vendor-$_flavor"
++         exit 1
++         ;;
++    esac
++    if test "$_flavor" != none ; then
++        # move this to case if adding different cpu
++        iproc=686
++        _optimizing="Custom Target $_flavor"
++    fi
++fi
+ 
+ # Checking for CFLAGS
+ _install_strip="-s"

@@ -1,0 +1,90 @@
+Index: mplayer/DOCS/tech/slave.txt
+===================================================================
+--- mplayer.orig/DOCS/tech/slave.txt	2012-07-23 01:28:10.850621900 +0200
++++ mplayer/DOCS/tech/slave.txt	2012-07-23 01:33:51.058008700 +0200
+@@ -512,6 +512,11 @@
+     Run <value> as shell command. In OSD menu console mode stdout and stdin
+     are through the video output driver.
+ 
++af_eq_set_bands <values>
++    Set bands gain in audio equalizer. Se details in manual (-af equalizer).
++    Example:
++       af_eq_set_bands 11:11:10:5:0:-12:0:5:12:12
++
+ 
+ Available properties:
+ 
+Index: mplayer/command.c
+===================================================================
+--- mplayer.orig/command.c	2012-07-23 01:28:15.194622100 +0200
++++ mplayer/command.c	2012-07-23 01:33:51.074009600 +0200
+@@ -3191,6 +3191,15 @@
+             set_rectangle(sh_video, cmd->args[0].v.i, cmd->args[1].v.i);
+             break;
+ 
++        case MP_CMD_AF_EQ_SET:{  
++            af_instance_t* m1=af_get(sh_audio->afilter, "equalizer");
++            if (m1)
++                m1->control( m1, AF_CONTROL_COMMAND_LINE, cmd->args[0].v.s);
++            else
++                mp_msg(MSGT_CPLAYER, MSGL_INFO, "failed (forgot -af equalizer=0:0 ?)\n");
++            }
++            break;
++ 
+         case MP_CMD_GET_TIME_LENGTH:{
+                 mp_msg(MSGT_GLOBAL, MSGL_INFO, "ANS_LENGTH=%.2f\n",
+                        demuxer_get_time_length(mpctx->demuxer));
+Index: mplayer/input/input.c
+===================================================================
+--- mplayer.orig/input/input.c	2012-07-23 01:33:49.998948100 +0200
++++ mplayer/input/input.c	2012-07-23 01:33:51.090010600 +0200
+@@ -202,6 +202,7 @@
+   { MP_CMD_SEEK_CHAPTER, "seek_chapter", 1, { {MP_CMD_ARG_INT,{0}}, {MP_CMD_ARG_INT,{0}}, {-1,{0}} } },
+   { MP_CMD_SET_MOUSE_POS, "set_mouse_pos", 2, { {MP_CMD_ARG_INT,{0}}, {MP_CMD_ARG_INT,{0}}, {-1,{0}} } },
+ 
++  { MP_CMD_AF_EQ_SET, "af_eq_set_bands", 1, { {MP_CMD_ARG_STRING, {0}}, {-1,{0}}}}, //turbos
+   { MP_CMD_AF_SWITCH, "af_switch", 1,  { {MP_CMD_ARG_STRING, {0}}, {-1,{0}} } },
+   { MP_CMD_AF_ADD, "af_add", 1,  { {MP_CMD_ARG_STRING, {0}}, {-1,{0}} } },
+   { MP_CMD_AF_DEL, "af_del", 1,  { {MP_CMD_ARG_STRING, {0}}, {-1,{0}} } },
+Index: mplayer/input/input.h
+===================================================================
+--- mplayer.orig/input/input.h	2012-07-23 01:28:05.842621800 +0200
++++ mplayer/input/input.h	2012-07-23 01:33:51.098011000 +0200
+@@ -156,6 +156,7 @@
+   MP_CMD_CHIDE,
+ 
+   /// Audio Filter commands
++  MP_CMD_AF_EQ_SET,
+   MP_CMD_AF_SWITCH,
+   MP_CMD_AF_ADD,
+   MP_CMD_AF_DEL,
+Index: mplayer/libaf/af_equalizer.c
+===================================================================
+--- mplayer.orig/libaf/af_equalizer.c	2012-07-23 01:28:16.582622100 +0200
++++ mplayer/libaf/af_equalizer.c	2012-07-23 01:33:51.112011800 +0200
+@@ -141,6 +141,7 @@
+   case AF_CONTROL_COMMAND_LINE:{
+     float g[10]={0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0};
+     int i,j;
++    float gain_factor2=0.0;
+     sscanf((char*)arg,"%f:%f:%f:%f:%f:%f:%f:%f:%f:%f", &g[0], &g[1],
+ 	   &g[2], &g[3], &g[4], &g[5], &g[6], &g[7], &g[8] ,&g[9]);
+     for(i=0;i<AF_NCH;i++){
+@@ -149,6 +150,17 @@
+ 	  pow(10.0,clamp(g[j],G_MIN,G_MAX)/20.0)-1.0;
+       }
+     }
++    
++    //calculate gainfactor for slave command
++    //see: af_eq_set_bands  -> input.c
++    //see code: AF_CONTROL_REINIT  in this file
++     for(j=0;j<KM;j++)
++        if(gain_factor2< s->g[0][j]) gain_factor2=s->g[0][j];
++     gain_factor2=log10(gain_factor2 + 1.0) * 20.0;
++     if(gain_factor2 > 0.0)   gain_factor2=0.1+(gain_factor2/12.0);
++     else gain_factor2=1;
++     s->gain_factor=gain_factor2;
++    
+     return AF_OK;
+   }
+   case AF_CONTROL_EQUALIZER_GAIN | AF_CONTROL_SET:{

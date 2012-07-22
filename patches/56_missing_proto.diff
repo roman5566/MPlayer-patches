@@ -1,0 +1,14 @@
+Index: mplayer/libvo/w32_common.c
+===================================================================
+--- mplayer.orig/libvo/w32_common.c	2012-07-23 01:28:08.242621900 +0200
++++ mplayer/libvo/w32_common.c	2012-07-23 01:33:33.785020800 +0200
+@@ -37,6 +37,9 @@
+ static const char classname[] = "MPlayer - The Movie Player";
+ int vo_vm = 0;
+ 
++HDC vo_w32_get_dc(HWND wnd);
++void vo_w32_release_dc(HWND wnd, HDC dc);
++
+ // last non-fullscreen extends
+ static int prev_width;
+ static int prev_height;

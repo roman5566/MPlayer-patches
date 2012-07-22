@@ -1,0 +1,15 @@
+Index: mplayer/mplayer.c
+===================================================================
+--- mplayer.orig/mplayer.c	2012-07-23 01:33:30.072808400 +0200
++++ mplayer/mplayer.c	2012-07-23 01:33:32.858967800 +0200
+@@ -712,8 +712,10 @@
+         send_udp(udp_ip, udp_port, "bye");
+ #endif /* CONFIG_NETWORKING */
+ 
++#ifndef _WIN32
+     if (mpctx->user_muted && !mpctx->edl_muted)
+         mixer_mute(&mpctx->mixer);
++#endif
+     uninit_player(INITIALIZED_ALL);
+ #if defined(__MINGW32__) || defined(__CYGWIN__)
+     timeEndPeriod(1);

@@ -1,0 +1,119 @@
+Index: mplayer/Makefile
+===================================================================
+--- mplayer.orig/Makefile	2012-07-23 01:28:06.258621800 +0200
++++ mplayer/Makefile	2012-07-23 01:32:14.233470700 +0200
+@@ -702,6 +702,8 @@
+ OBJS_MPLAYER   += $(addsuffix .o, $(basename $(SRCS_MPLAYER)))
+ OBJS_MPLAYER-$(PE_EXECUTABLE) += osdep/mplayer-rc.o
+ OBJS_MPLAYER   += $(OBJS_MPLAYER-yes)
++OBJS_MENCODER-$(PE_EXECUTABLE) += osdep/mencoder-rc.o
++OBJS_MENCODER  += $(OBJS_MENCODER-yes)
+ 
+ MENCODER_DEPS = $(OBJS_MENCODER) $(OBJS_COMMON) $(COMMON_LIBS)
+ MPLAYER_DEPS  = $(OBJS_MPLAYER)  $(OBJS_COMMON) $(COMMON_LIBS)
+@@ -805,6 +807,9 @@
+ check_checksums: $(MPLAYER_DEPS) $(MENCODER_DEPS) mplayer$(EXESUF) mencoder$(EXESUF)
+ 	md5sum -c checksums
+ 
++osdep/mencoder-rc.o: osdep/mplayer.rc version.h
++	$(WINDRES) -D IN_MENCODER -o $@ $<
++
+ # ./configure must be rerun if it changed
+ config.mak: configure
+ 	@echo "############################################################"
+Index: mplayer/configure
+===================================================================
+--- mplayer.orig/configure	2012-07-23 01:28:08.506621900 +0200
++++ mplayer/configure	2012-07-23 01:32:14.261472300 +0200
+@@ -2611,7 +2611,6 @@
+   else
+     CFLAGS="-O4 $_march $_mcpu $_pipe -ffast-math -fomit-frame-pointer"
+     WARNFLAGS="-Wall -Wno-switch -Wno-parentheses -Wpointer-arith -Wredundant-decls"
+-    WARN_CFLAGS="-Werror-implicit-function-declaration"
+     extra_ldflags="$extra_ldflags -ffast-math"
+   fi
+ else
+@@ -2620,13 +2619,10 @@
+ 
+ if test "$cc_vendor" = "gnu" ; then
+   cflag_check -fno-tree-vectorize && CFLAGS="$CFLAGS -fno-tree-vectorize"
+-  cflag_check -Wundef && WARNFLAGS="-Wundef $WARNFLAGS"
+   cflag_check -std=gnu99 && WARN_CFLAGS="-std=gnu99 $WARN_CFLAGS"
+   cflag_check -Wdeclaration-after-statement && WARN_CFLAGS="-Wdeclaration-after-statement $WARN_CFLAGS"
+   cflag_check -Wno-pointer-sign && WARN_CFLAGS="-Wno-pointer-sign $WARN_CFLAGS"
+   cflag_check -Wdisabled-optimization && WARN_CFLAGS="-Wdisabled-optimization $WARN_CFLAGS"
+-  cflag_check -Wmissing-prototypes && WARN_CFLAGS="-Wmissing-prototypes $WARN_CFLAGS"
+-  cflag_check -Wstrict-prototypes && WARN_CFLAGS="-Wstrict-prototypes $WARN_CFLAGS"
+ else
+   CFLAGS="-D_ISOC99_SOURCE -D_BSD_SOURCE $CFLAGS"
+ fi
+Index: mplayer/osdep/mplayer.rc
+===================================================================
+--- mplayer.orig/osdep/mplayer.rc	2012-07-23 01:28:13.994622000 +0200
++++ mplayer/osdep/mplayer.rc	2012-07-23 01:33:07.731530600 +0200
+@@ -19,7 +19,15 @@
+  */
+ 
+ #include <winver.h>
+-#include "version.h"
++#include "../version.h"
++ 
++#ifdef IN_MENCODER
++#define FILENAME "mencoder.exe\000"
++#define DESCRIPTION "MEncoder\000"
++#else
++#define FILENAME "mplayer.exe\000"
++#define DESCRIPTION "MPlayer - The Movie Player\000"
++#endif
+ 
+ 1 VERSIONINFO
+ FILEVERSION 0,0,9,0
+@@ -32,16 +40,15 @@
+         BLOCK "000004b0" // LANG_NEUTRAL,UNICODE_CP
+         {
+             VALUE "Comments","MPlayer is distributed under the terms of the GNU General Public License Version 2. Source code is available at http://www.mplayerhq.hu\000"
+-            VALUE "CompanyName", "\000"
+-            VALUE "FileDescription", "MPlayer - Movie Player\000"
++            VALUE "FileDescription",DESCRIPTION
+             VALUE "FileVersion",VERSION
+             VALUE "InternalName", "Counter Counter\000"
+             VALUE "LegalCopyright", " (C) 2000-2012 MPlayer Team\000"
+             //VALUE "LegalTrademarks"," \000";
+-            VALUE "OriginalFilename", "mplayer.exe\000"
+-            VALUE "ProductName", "MPlayer - The Movie Player\000"
++            VALUE "OriginalFilename",FILENAME
++            VALUE "ProductName",DESCRIPTION
+             VALUE "ProductVersion",VERSION
+-            //VALUE "SpecialBuild","\000"
++            VALUE "SpecialBuild","http://oss.netfarm.it/mplayer-win32.php\000"
+         }
+     }
+     BLOCK "VarFileInfo"
+@@ -50,7 +57,13 @@
+     }
+ }
+ 
+-IDI_ICON1 ICON DISCARDABLE  "etc/mplayer.ico"
++#ifdef IN_MENCODER
++MAIN     ICON DISCARDABLE  "../icons/mencoder.ico"
++#else
++MAIN     ICON DISCARDABLE  "../icons/mplayer.ico"
++Z_AUDIO  ICON DISCARDABLE  "../icons/audio.ico"
++Z_VIDEO  ICON DISCARDABLE  "../icons/video.ico"
++#endif
+ 
+ // for some reason RT_MANIFEST does not work
+ 1 24 "mplayer.exe.manifest"
+Index: mplayer/version.sh
+===================================================================
+--- mplayer.orig/version.sh	2012-07-23 01:28:05.842621800 +0200
++++ mplayer/version.sh	2012-07-23 01:32:14.286473700 +0200
+@@ -12,7 +12,7 @@
+ test $svn_revision || svn_revision=$(LC_ALL=C svn info 2> /dev/null | grep Revision | cut -d' ' -f2)
+ test $svn_revision || svn_revision=$(grep revision .svn/entries 2>/dev/null | cut -d '"' -f2)
+ test $svn_revision || svn_revision=$(sed -n -e '/^dir$/{n;p;q;}' .svn/entries 2>/dev/null)
+-test $svn_revision && svn_revision=SVN-r$svn_revision
++test $svn_revision && svn_revision=Sherpya-SVN-r$svn_revision
+ test $svn_revision || svn_revision=UNKNOWN
+ version=$svn_revision
+ fi
